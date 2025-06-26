@@ -14,37 +14,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Create static content
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Vite site
+        run: npm run build
+
+      - name: Remove symlinks safely
         run: |
-          mkdir -p public
-          echo "<h1>Hello GitHub Pages!</h1>" > public/index.html
-
-      - name: Show directory structure and check for symlinks
-        run: |
-          echo "🔍 Directory listing:"
-          ls -lR public
-
-          echo "🔗 Checking for symlinks..."
-          find public -type l || echo "No symlinks found"
-
-          echo "📦 Total size:"
-          du -sh public
-
-      - name: Remove symlinks by re-tarring
-        run: |
-          mkdir clean_public
-          tar -chf - public | tar -xpf - -C clean_public
-          rm -rf public
-          mv clean_public public
+          mkdir clean_dist
+          tar -chf - dist | tar -xpf - -C clean_dist
+          rm -rf dist
+          mv clean_dist dist
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: github-pages
-          path: ./public
+          path: dist
 
   deploy:
     needs: build
