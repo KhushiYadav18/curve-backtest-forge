@@ -12,8 +12,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Create static content
@@ -21,9 +22,28 @@ jobs:
           mkdir -p public
           echo "<h1>Hello GitHub Pages!</h1>" > public/index.html
 
-      - name: Upload GitHub Pages artifact
-        uses: actions/upload-pages-artifact@v1
+      - name: Show directory structure and check for symlinks
+        run: |
+          echo "🔍 Directory listing:"
+          ls -lR public
+
+          echo "🔗 Checking for symlinks..."
+          find public -type l || echo "No symlinks found"
+
+          echo "📦 Total size:"
+          du -sh public
+
+      - name: Remove symlinks by re-tarring
+        run: |
+          mkdir clean_public
+          tar -chf - public | tar -xpf - -C clean_public
+          rm -rf public
+          mv clean_public public
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
+          name: github-pages
           path: ./public
 
   deploy:
@@ -32,7 +52,10 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages
