@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from utils import create_user, authenticate_user, logout_user
+from utils import create_user, authenticate_user, logout_user, is_valid_email
 import pandas as pd
 import os
 import json
@@ -13,6 +13,16 @@ import smtplib
 import plotly.graph_objects as go
 import os
 from flask import send_file
+
+import logging
+
+def is_valid_email(email):
+    return re.match(r"[^@]+@[^@]+\.[^@]+", email)
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 # Updated import - removed get_candlestick_figure
 from backtester.soq_backtester.backtester import Backtester
@@ -36,24 +46,69 @@ def home():
 
 @app.route('/contact', methods=['POST'])
 def contact():
-    data = request.get_json()
-    name = data.get('name')
-    email = data.get('email')
-    subject = data.get('subject')
-    message = data.get('message')
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': 'No data provided'}), 400
+            
+        name = data.get('name', '').strip()
+        email = data.get('email', '').strip().lower()
+        subject = data.get('subject', '').strip()
+        message = data.get('message', '').strip()
 
-    if not all([name, email, subject, message]):
-        return jsonify({'success': False, 'message': 'All fields required'}), 400
+        # Validate all fields
+        if not all([name, email, subject, message]):
+            return jsonify({'success': False, 'message': 'All fields are required'}), 400
 
-    # Admin Email
-    admin_msg = f"New message from {name} <{email}>:\n\nSubject: {subject}\n\nMessage:\n{message}"
-    send_email("anujyadav@iitb.ac.in", f"QuantEdge Contact: {subject}", admin_msg)
+        # Validate email format
+        if not is_valid_email(email):
+            return jsonify({'success': False, 'message': 'Invalid email format'}), 400
 
-    # Confirmation to user
-    user_msg = f"Hi {name},\n\nThanks for contacting QuantEdge! We've received your message:\n\n{message}\n\nWe'll get back to you shortly.\n\n– QuantEdge Team"
-    send_email(email, "Thanks for contacting QuantEdge", user_msg)
+        # Admin Email
+        admin_msg = (
+            f"New message from {name} <{email}>\n\n"
+            f"Subject: {subject}\n\n"
+            f"Message:\n{message}"
+        )
+        
+        # User Confirmation
+        user_msg = (
+            f"Hi {name},\n\n"
+            f"Thanks for contacting QuantEdge! We've received your message:\n\n"
+            f"\"{message}\"\n\n"
+            f"We'll get back to you shortly.\n\n"
+            f"– QuantEdge Team"
+        )
 
-    return jsonify({'success': True, 'message': 'Message sent successfully'}), 200
+        # Try sending admin email
+        admin_sent = send_email("mansi24ecell@gmail.com", f"QuantEdge Contact: {subject}", admin_msg)
+        
+        if not admin_sent:
+            # Log critical error
+            logger.error(f"Failed to send admin email for contact form: {name} <{email}>")
+            return jsonify({
+                'success': False,
+                'message': 'Failed to send your message. Please try again later.'
+            }), 500
+
+        # Try sending user confirmation
+        user_sent = send_email(email, "Thanks for contacting QuantEdge", user_msg)
+        
+        if not user_sent:
+            # Log warning but don't fail the request
+            logger.warning(f"Sent message but failed to send confirmation to: {email}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Message sent successfully'
+        }), 200
+
+    except Exception as e:
+        logger.exception("Unexpected error in contact form")
+        return jsonify({
+            'success': False,
+            'message': 'An unexpected error occurred. Please try again later.'
+        }), 500
 
 @app.route('/signup', methods=['POST'])
 def signup():
