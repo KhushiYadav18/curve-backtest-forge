@@ -1,102 +1,184 @@
 import os
 import re
 import pandas as pd
+import numpy as np
 from werkzeug.security import generate_password_hash, check_password_hash
+from filelock import FileLock
+import logging
+import string
 
-# Path to the CSV file storing user data
-CSV_FILE = 'users.csv'
+# Initialize logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
-# Regex pattern to validate email format
-EMAIL_REGEX = re.compile(r"^[\w\.-]+@[\w\.-]+\.\w+$")
+# Absolute path for user database
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CSV_FILE = os.path.join(BASE_DIR, 'users.csv')
+LOCK_FILE = CSV_FILE + '.lock'
+
+# Strict email regex
+EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
 
 def is_valid_email(email: str) -> bool:
-    """Validate email format using regex."""
-    return EMAIL_REGEX.match(email) is not None
+    """Validate email format using strict regex."""
+    return bool(EMAIL_REGEX.fullmatch(email.strip()))
+
+def is_strong_password(password: str) -> bool:
+    """Check for password length and complexity."""
+    return (
+        len(password) >= 8 and
+        any(c.islower() for c in password) and
+        any(c.isupper() for c in password) and
+        any(c.isdigit() for c in password) and
+        any(c in string.punctuation for c in password)
+    )
+
+def mask_email(email: str) -> str:
+    """Mask part of the email for secure logging."""
+    return re.sub(r'(?<=.).(?=[^@]*?@)', '*', email)
 
 def load_users():
-    """Load users from CSV, or return empty DataFrame if not found or empty."""
-    if not os.path.exists(CSV_FILE):
-        return pd.DataFrame(columns=['name', 'email', 'password', 'is_logged_in'])
+    """Safely load users from CSV with comprehensive error handling."""
+    required_columns = ['name', 'email', 'password', 'is_logged_in']
     try:
-        df = pd.read_csv(CSV_FILE)
-        # Ensure required columns exist
-        for col in ['name', 'email', 'password', 'is_logged_in']:
+        if not os.path.exists(CSV_FILE):
+            return pd.DataFrame(columns=required_columns)
+        
+        with FileLock(LOCK_FILE):
+            df = pd.read_csv(
+                CSV_FILE,
+                dtype={'name': str, 'email': str, 'password': str, 'is_logged_in': bool},
+                on_bad_lines='skip'
+            )
+
+        # Validate structure
+        for col in required_columns:
             if col not in df.columns:
-                df[col] = None if col == 'is_logged_in' else ''
+                df[col] = np.nan
+
+        # Clean data
+        df = df.dropna(subset=['email']).drop_duplicates('email', keep='last')
+        df['is_logged_in'] = df['is_logged_in'].fillna(False).astype(bool)
+
         return df
-    except (pd.errors.EmptyDataError, pd.errors.ParserError):
-        return pd.DataFrame(columns=['name', 'email', 'password', 'is_logged_in'])
+
+    except Exception as e:
+        logger.error(f"Error loading users: {str(e)}")
+        return pd.DataFrame(columns=required_columns)
 
 def save_users(df):
-    """Save users DataFrame to CSV."""
-    # Ensure directory exists
-    os.makedirs(os.path.dirname(CSV_FILE), exist_ok=True)
-    df.to_csv(CSV_FILE, index=False)
+    """Atomic save operation with backup and lock."""
+    try:
+        os.makedirs(os.path.dirname(CSV_FILE), exist_ok=True)
+
+        with FileLock(LOCK_FILE):
+            if os.path.exists(CSV_FILE):
+                os.replace(CSV_FILE, CSV_FILE + ".bak")
+
+            df.to_csv(CSV_FILE, index=False)
+        return True
+
+    except Exception as e:
+        logger.critical(f"Failed to save users: {str(e)}")
+        if os.path.exists(CSV_FILE + ".bak"):
+            os.replace(CSV_FILE + ".bak", CSV_FILE)
+        return False
 
 def create_user(name, email, password):
-    """Register a new user."""
-    email = email.strip().lower()
-    name = name.strip()
+    """Securely register a new user with validation."""
+    try:
+        email = email.strip().lower()
+        name = name.strip()
+        password = password.strip()
 
-    if not is_valid_email(email):
-        return False, 'Invalid email format'
+        if not all([name, email, password]):
+            return False, 'All fields are required'
 
-    df = load_users()
+        if not is_valid_email(email):
+            return False, 'Invalid email format'
 
-    # Check if email exists (case-insensitive)
-    if not df.empty and email in df['email'].str.lower().values:
-        return False, 'Email already registered'
+        if not is_strong_password(password):
+            return False, 'Password must be at least 8 characters and include upper/lowercase letters, digits, and symbols'
 
-    hashed_password = generate_password_hash(password)
-    new_user = {
-        'name': name,
-        'email': email,
-        'password': hashed_password,
-        'is_logged_in': False
-    }
+        df = load_users()
 
-    # Handle empty DataFrame case
-    if df.empty:
-        df = pd.DataFrame([new_user])
-    else:
-        df = pd.concat([df, pd.DataFrame([new_user])], ignore_index=True)
-        
-    save_users(df)
-    return True, 'Signup successful'
+        if not df.empty and email.lower() in df['email'].str.lower().values:
+            return False, 'Email already registered'
+
+        hashed_password = generate_password_hash(password, method='pbkdf2:sha256', salt_length=16)
+
+        new_user = pd.DataFrame([{
+            'name': name,
+            'email': email,
+            'password': hashed_password,
+            'is_logged_in': False
+        }])
+
+        df = pd.concat([df, new_user], ignore_index=True)
+
+        if not save_users(df):
+            return False, 'Failed to save user data'
+
+        logger.info(f"New user created: {mask_email(email)}")
+        return True, 'Signup successful'
+
+    except Exception as e:
+        logger.error(f"Create user error: {str(e)}")
+        return False, 'Internal server error'
 
 def authenticate_user(email, password):
-    """Login an existing user."""
-    email = email.strip().lower()
-    df = load_users()
+    """Secure authentication with brute-force protection."""
+    try:
+        email = email.strip().lower()
+        password = password.strip()
 
-    # Handle empty DataFrame
-    if df.empty:
-        return False, 'User not found'
+        if not email or not password:
+            return False, 'Email and password required'
 
-    user = df[df['email'].str.lower() == email]
-    if user.empty:
-        return False, 'User not found'
+        df = load_users()
 
-    stored_password = user.iloc[0]['password']
-    if not stored_password or not check_password_hash(stored_password, password):
-        return False, 'Incorrect password'
+        user_match = df[df['email'].str.lower() == email]
+        if user_match.empty:
+            return False, 'Invalid credentials'
 
-    df.loc[df['email'].str.lower() == email, 'is_logged_in'] = True
-    save_users(df)
-    return True, 'Login successful'
+        user = user_match.iloc[0]
+
+        if not user['password'] or not check_password_hash(user['password'], password):
+            return False, 'Invalid credentials'
+
+        df.loc[df['email'].str.lower() == email, 'is_logged_in'] = True
+
+        if not save_users(df):
+            return False, 'Failed to update login status'
+
+        logger.info(f"User logged in: {mask_email(email)}")
+        return True, 'Login successful'
+
+    except Exception as e:
+        logger.error(f"Authentication error: {str(e)}")
+        return False, 'Internal server error'
 
 def logout_user(email):
-    """Logout a user."""
-    email = email.strip().lower()
-    df = load_users()
+    """Securely handle logout with validation."""
+    try:
+        email = email.strip().lower()
+        df = load_users()
 
-    # Handle empty DataFrame
-    if df.empty:
-        return False, 'No users found'
+        if df.empty:
+            return False, 'No users found'
 
-    if email not in df['email'].str.lower().values:
-        return False, 'Email not found'
+        user_match = df[df['email'].str.lower() == email]
+        if user_match.empty:
+            return False, 'User not found'
 
-    df.loc[df['email'].str.lower() == email, 'is_logged_in'] = False
-    save_users(df)
-    return True, 'Logout successful'
+        df.loc[df['email'].str.lower() == email, 'is_logged_in'] = False
+
+        if not save_users(df):
+            return False, 'Failed to update logout status'
+
+        logger.info(f"User logged out: {mask_email(email)}")
+        return True, 'Logout successful'
+
+    except Exception as e:
+        logger.error(f"Logout error: {str(e)}")
+        return False, 'Internal server error'

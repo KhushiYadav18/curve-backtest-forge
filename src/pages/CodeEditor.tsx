@@ -8,32 +8,12 @@ import { ArrowLeft, Play, Settings, TrendingUp, Save, Download, Upload, Sparkles
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, AreaChart, Area } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import SettingsForm from '@/components/SettingsForm';
+import defaultStrategyCode from './defaultStrategy';
 
 
 const CodeEditor = () => {
   const navigate = useNavigate();
-  const [code, setCode] = useState(`# Sample Trading Strategy
-def momentum_strategy(data):
-    """
-    Simple momentum strategy
-    Buy when price > 20-day moving average
-    Sell when price < 20-day moving average
-    """
-    signals = []
-    for i in range(len(data)):
-        if data[i].close > data[i].ma_20:
-            signals.append("BUY")
-        else:
-            signals.append("SELL")
-    return signals
-
-# Run backtest
-backtest_results = run_backtest(
-    strategy=momentum_strategy,
-    start_date="2023-01-01",
-    end_date="2024-01-01",
-    initial_capital=100000
-)`);
+  const [code, setCode] = useState(defaultStrategyCode);
 interface Settings {
   longEntry: string;
   longExit: string;
@@ -192,47 +172,51 @@ useEffect(() => {
     console.log('Generating AI code...');
   };
 
-  const handleSaveStrategy = () => {
+  const handleSaveStrategy = async () => {
   const name = prompt("Enter strategy name:");
   if (!name) return;
 
-  const saved = JSON.parse(localStorage.getItem("savedStrategies") || "[]");
   const newEntry = {
-    id: Date.now(),
     name,
     code,
     timestamp: new Date().toISOString(),
   };
 
-  const updated = [newEntry, ...saved];
-  localStorage.setItem("savedStrategies", JSON.stringify(updated));
-  setSavedStrategies(updated);
-  console.log("Strategy saved");
+  const res = await fetch('/strategies', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(newEntry),
+  });
+
+  if (res.ok) {
+    console.log('Strategy saved to backend');
+    handleShowSaved(); // Refresh
+  }
 };
-   const handleShowSaved = () => {
-  const saved = JSON.parse(localStorage.getItem("savedStrategies") || "[]");
-  setSavedStrategies(saved);
+
+  const handleShowSaved = async () => {
+  const res = await fetch('/strategies');
+  const data = await res.json();
+  setSavedStrategies(data);
   setShowSavedList(true);
 };
+
 
 const handleLoadSubmission = (submissionCode: string) => {
   setCode(submissionCode);
   setShowSavedList(false);
 };
 
-const handleDeleteSubmission = (id: number) => {
-  const updated = savedStrategies.filter((s) => s.id !== id);
-  localStorage.setItem("savedStrategies", JSON.stringify(updated));
-  setSavedStrategies(updated);
+const handleDeleteSubmission = async (id: number) => {
+  const res = await fetch(`/strategies/${id}`, { method: 'DELETE' });
+  if (res.ok) {
+    setSavedStrategies(savedStrategies.filter((s) => s.id !== id));
+  }
 };
 
 
 
-  const handleLoadStrategy = () => {
-    const saved = localStorage.getItem("savedStrategy");
-    if (saved) setCode(saved);
-    console.log("Strategy loaded from localStorage");
-  };
+  
 
  const handleDownloadCode = () => {
   const userFilename = prompt('Enter filename (without extension):', 'strategy');
@@ -381,7 +365,7 @@ const handleDeleteSubmission = (id: number) => {
                 <span>Back</span>
               </button>
               <div className="flex items-center space-x-2">
-                <img src="/logo.png" alt="Logo" className="h-9 w-9 rounded-none" />
+                <img src="src\QElogo.png" alt="Logo" className="h-9 w-9 rounded-none" />
                 <div className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text text-transparent">
                   QuantEdge
                 </div>
@@ -808,7 +792,7 @@ const handleDeleteSubmission = (id: number) => {
                 Save
               </Button> */}
   <Button 
-    onClick={handleLoadStrategy}
+    onClick={handleShowSaved }
     variant="outline" 
     className="w-1/2 border-gray-600 text-gray-300 hover:bg-gray-700"
   >

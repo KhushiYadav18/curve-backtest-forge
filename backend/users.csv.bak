@@ -1,0 +1,2 @@
+name,email,password,is_logged_in
+Mansi Amrutham,mansi24ecell@gmail.com,scrypt:32768:8:1$8ITydCXFSkBu1nHW$1a7ca52457125ce981074aae6baf44e32811e25395888ebb6eb7836427cddbdbce70d680af4d5f219fe0b4516bb811b8d9ec0534279de98a27bd0474c4ae1957,True
