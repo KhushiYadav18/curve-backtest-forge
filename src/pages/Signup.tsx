@@ -21,7 +21,7 @@ const Signup = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
+const handleSignup = async (e: React.FormEvent) => {
   e.preventDefault();
 
   if (formData.password !== formData.confirmPassword) {
@@ -29,35 +29,37 @@ const Signup = () => {
     return;
   }
 
- try {
-  const res = await fetch('http://localhost:5001/signup', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      name: formData.name,
-      email: formData.email,
-      password: formData.password
-    })
-  });
+  try {
+    const res = await fetch('http://localhost:5001/signup', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: formData.name.trim(),
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password.trim()
+      })
+    });
 
-  if (!res.ok) {
-    const text = await res.text();  // To debug if needed
-    throw new Error(`Signup failed: ${res.status}`);
+    const data = await res.json();
+
+    if (!res.ok) {
+      setError(data?.message || `Signup failed: ${res.status}`);
+      return;
+    }
+
+    if (data.success) {
+      alert('Signup successful!');
+      navigate('/login');
+    } else {
+      setError(data?.message || 'Signup failed');
+    }
+
+  } catch (err) {
+    console.error('Signup error:', err);
+    setError('Something went wrong. Please try again.');
   }
-
-  const data = await res.json();
-
-  if (data.success) {
-    alert('Signup successful!');
-    navigate('/login');
-  } else {
-    setError(data.message || 'Signup failed');
-  }
-} catch (err) {
-  console.error(err);
-  setError('Something went wrong. Try again.');
-}
-
 };
 
 

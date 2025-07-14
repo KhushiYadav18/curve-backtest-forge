@@ -101,8 +101,10 @@ def create_user(name, email, password):
             return False, 'Password must be at least 8 characters and include upper/lowercase letters, digits, and symbols'
 
         df = load_users()
+        existing_emails = df['email'].dropna().str.strip().str.lower()
 
-        if not df.empty and email.lower() in df['email'].str.lower().values:
+        if email in existing_emails.values:
+            logger.warning(f"Attempt to re-register: {email} already exists.")
             return False, 'Email already registered'
 
         hashed_password = generate_password_hash(password, method='pbkdf2:sha256', salt_length=16)
@@ -133,30 +135,36 @@ def authenticate_user(email, password):
         password = password.strip()
 
         if not email or not password:
-            return False, 'Email and password required'
+            return False, 'Email and password required', {}
 
         df = load_users()
 
         user_match = df[df['email'].str.lower() == email]
         if user_match.empty:
-            return False, 'Invalid credentials'
+            return False, 'Invalid credentials', {}
 
         user = user_match.iloc[0]
 
         if not user['password'] or not check_password_hash(user['password'], password):
-            return False, 'Invalid credentials'
+            return False, 'Invalid credentials', {}
 
         df.loc[df['email'].str.lower() == email, 'is_logged_in'] = True
 
         if not save_users(df):
-            return False, 'Failed to update login status'
+            return False, 'Failed to update login status', {}
 
         logger.info(f"User logged in: {mask_email(email)}")
-        return True, 'Login successful'
+
+        # You can return just name/email for frontend if needed
+        return True, 'Login successful', {
+            "name": user["name"],
+            "email": user["email"]
+        }
 
     except Exception as e:
         logger.error(f"Authentication error: {str(e)}")
-        return False, 'Internal server error'
+        return False, 'Internal server error', {}
+
 
 def logout_user(email):
     """Securely handle logout with validation."""

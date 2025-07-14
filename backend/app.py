@@ -22,7 +22,7 @@ from datetime import datetime
 
 # Initialize Flask app FIRST
 app = Flask(__name__)
-CORS(app)
+CORS(app, supports_credentials=True, origins=["http://localhost:5173"])
 CSV_FILE = 'strategies.csv'
 
 # Configure logging through Flask app
@@ -137,9 +137,14 @@ def contact():
 @app.route('/signup', methods=['POST', 'OPTIONS'])  
 def signup():
     if request.method == 'OPTIONS':
+        # Handle CORS preflight request
         return '', 200
-    data = request.get_json()
-    name = data.get('name', '').strip()  # Sanitize
+
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({'success': False, 'message': 'Invalid JSON'}), 400
+
+    name = data.get('name', '').strip()
     email = data.get('email', '').strip().lower()
     password = data.get('password', '').strip()
 
