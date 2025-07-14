@@ -5,7 +5,7 @@ const AboutSection = () => {
     icon: Shield,
     title: 'AI-Based Strategy Generator',
     description:
-      'Eliminate the need for coding. Describe your trading logic in natural language, and our AI will automatically generate optimized Python strategies for you.'
+      'No coding Required. Describe your trading logic in natural language, and our AI will automatically generate optimized Python strategies for you.'
   },
   {
     icon: Zap,
@@ -24,7 +24,7 @@ const AboutSection = () => {
 
     title: 'No Programming Required',
     description:
-      'Our intuitive interface empowers traders of all backgrounds to build and test strategies without writing a single line of code. Python compatibility is available for advanced users.'
+      'Simply describe your strategy in natural language — our AI automatically writes the code for you. Advanced users can customize and run it with full Python support.'
   }
 ];
 
@@ -46,7 +46,9 @@ const AboutSection = () => {
           <p className="text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed">We're transforming the way traders develop and refine their strategies-delivering unmatched data driven power through our seamless blend of Backtester and AI</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16"> 
+        
+
           {features.map((feature, index) => <div key={index} className="group glass-effect rounded-2xl p-8 text-center hover:bg-emerald-900/20 transition-all duration-300 transform hover:-translate-y-2">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-emerald-600 to-green-600 rounded-2xl mb-6 group-hover:scale-110 transition-transform duration-300">
                 <feature.icon className="text-white" size={32} />
