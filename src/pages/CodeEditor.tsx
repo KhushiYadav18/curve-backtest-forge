@@ -28,6 +28,10 @@ interface Settings {
 }
   const [savedStrategies, setSavedStrategies] = useState<any[]>([]);
   const [showSavedList, setShowSavedList] = useState(false);
+  const [showPromptPopup, setShowPromptPopup] = useState(false);
+const [userPrompt, setUserPrompt] = useState('');
+const [isGenerating, setIsGenerating] = useState(false);
+const [showExamples, setShowExamples] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
@@ -140,36 +144,60 @@ useEffect(() => {
   //     console.log('Strategy executed successfully');
   //   }, 2000);
   // };
-  const handleRunStrategy = () => {
-  setIsRunning(true);
-  setError(null); // Clear previous errors
-  // setTimeout(() => {
-  //   const hasError = code.includes('syntax_error'); // Dummy condition
-  //   setIsRunning(false);
-  //   if (hasError) {
-  //     setError('SyntaxError: Unexpected indent on line 10\nCheck indentation or invalid characters.');
-  //   } else {
-  //     console.log('Strategy executed successfully');
-  //   }
-  // }, 1000);
-  setTimeout(() => {
-  const hasError = code.includes('syntax_error'); // Dummy error check
-  setIsRunning(false);
-  if (hasError) {
-    setError('SyntaxError: Unexpected indent on line 10\nCheck indentation or invalid characters.');
-  } else {
-    console.log('Strategy executed successfully');
-    console.log('Using settings:', settings);
-    console.log('Strategy code:', code);
-    // Here you can call backend API to run actual backtest
-  }
-}, 1000);
+//   const handleRunStrategy = () => {
+//   setIsRunning(true);
+//   setError(null); 
+//   setTimeout(() => {
+//   const hasError = code.includes('syntax_error'); // Dummy error check
+//   setIsRunning(false);
+//   if (hasError) {
+//     setError('SyntaxError: Unexpected indent on line 10\nCheck indentation or invalid characters.');
+//   } else {
+//     console.log('Strategy executed successfully');
+//     console.log('Using settings:', settings);
+//     console.log('Strategy code:', code);
+//     // Here you can call backend API to run actual backtest
+//   }
+// }, 1000);
 
+// };
+const handleRunStrategy = async () => {
+  setIsRunning(true);
+  setError(null);
+
+  try {
+    const res = await fetch('http://localhost:5000/check_syntax', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+
+    const result = await res.json();
+
+    if (!result.ok) {
+      setError(result.error);
+      setIsRunning(false);
+      return;
+    }
+
+    // Syntax OK → continue simulation
+    setTimeout(() => {
+      setIsRunning(false);
+      console.log("Strategy executed successfully");
+      console.log("Settings:", settings);
+      console.log("Code:", code);
+    }, 1000);
+
+  } catch (err) {
+    setError("Error checking syntax");
+    setIsRunning(false);
+  }
 };
 
 
+
   const handleGenerateCode = () => {
-    console.log('Generating AI code...');
+    setShowPromptPopup(true);
   };
 
   const handleSaveStrategy = async () => {
@@ -351,7 +379,101 @@ const handleDeleteSubmission = async (id: number) => {
     setSettings={setSettings}
     onClose={() => setShowSettings(false)}
   />
+)}   {showPromptPopup && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="bg-gray-900 border border-gray-700 p-6 rounded-lg w-[90%] max-w-md">
+      <h3 className="text-lg font-bold text-white mb-4">🔮 Generate Code with Prompt</h3>
+
+      <textarea
+        className="w-full h-28 p-2 text-sm bg-gray-800 border border-gray-600 rounded text-white"
+        placeholder="Describe your strategy in natural language..."
+        value={userPrompt}
+        onChange={(e) => setUserPrompt(e.target.value)}
+      />
+
+      <div className="flex justify-end mt-4 gap-2">
+        <Button
+          onClick={() => setShowPromptPopup(false)}
+          className="bg-gray-600 hover:bg-gray-500 text-white"
+        >
+          Back
+        </Button>
+
+        <Button
+          onClick={async () => {
+            setIsGenerating(true);
+            try {
+              const res = await fetch('http://localhost:5000/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: userPrompt }),
+              });
+              const data = await res.json();
+              if (data.code) {
+                const cleanCode = data.code
+                  .replace(/```(python)?/g, '')
+                  .replace(/```/g, '')
+                  .trim();
+                setCode(cleanCode);
+                setShowPromptPopup(false);
+              } else {
+                alert('No code generated.');
+              }
+            } catch (err) {
+              alert('Generation failed');
+              console.error(err);
+            }
+            setIsGenerating(false);
+          }}
+          disabled={isGenerating}
+          className="bg-purple-600 hover:bg-purple-700 text-white"
+        >
+          {isGenerating ? 'Generating...' : 'Generate'}
+        </Button>
+      </div>
+    </div>
+  </div>
 )}
+
+{showExamples && (
+  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="bg-gray-900 border border-gray-700 p-6 rounded-lg w-[90%] max-w-md text-sm text-white">
+      <h3 className="text-lg font-bold mb-4">🧠 Example Prompts</h3>
+      <ul className="space-y-3">
+        {[
+          "A strategy that buys when RSI < 30 and sells when RSI > 70",
+          "Momentum strategy using 20-day moving average",
+          "Bollinger Bands breakout system",
+          "Mean reversion strategy for tech stocks",
+          "Buy when MACD crosses signal line upward",
+        ].map((prompt, i) => (
+          <li
+            key={i}
+            onClick={() => {
+              setUserPrompt(prompt);
+              setShowExamples(false);
+              setShowPromptPopup(true);
+            }}
+            className="cursor-pointer hover:bg-gray-700 px-3 py-2 rounded border border-gray-700"
+          >
+            {prompt}
+          </li>
+        ))}
+      </ul>
+      <div className="mt-4 text-right">
+        <Button 
+          size="sm"
+          onClick={() => setShowExamples(false)}
+          className="bg-gray-700 hover:bg-gray-600 text-white"
+        >
+          Close
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
+
+
       {/* Header */}
       <div className="border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -365,7 +487,7 @@ const handleDeleteSubmission = async (id: number) => {
                 <span>Back</span>
               </button>
               <div className="flex items-center space-x-2">
-                <img src="src\QElogo.png" alt="Logo" className="h-9 w-9 rounded-none" />
+                <img src="public/logo.png" alt="Logo" className="h-9 w-9 rounded-none" />
                 <div className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text text-transparent">
                   QuantEdge
                 </div>
@@ -418,6 +540,16 @@ const handleDeleteSubmission = async (id: number) => {
 >
   <Settings size={16} />
 </Button>
+<Button
+  variant="outline"
+  size="sm"
+  className="border-gray-600 text-gray-300 hover:bg-gray-700"
+  onClick={() => setShowExamples(true)}
+>
+  💡 Examples
+</Button>
+
+
 
               </div>
             </div>
