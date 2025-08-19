@@ -9,6 +9,7 @@ export interface EquityDataPoint {
 export interface ReturnsDataPoint {
   return: string;
   frequency: number;
+  percentage?: number; // Optional for the enhanced component
 }
 
 export interface StockDataPoint {

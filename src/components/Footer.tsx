@@ -55,17 +55,17 @@ const Footer = () => {
                 <p className="font-semibold text-white">Anuj Yadav</p>
                 <p className="text-sm">BTech Environmental Engineering, IIT Bombay'27</p>
               
-               <p className="text-sm">6302765711</p>
+               <p className="text-sm">8770678570</p>
                
                <p className="text-sm">anujyadav@iitb.ac.in</p>
               </div>
               <div>
                 <p className="font-semibold text-white">Aryan Tewari</p>
-                <p className="text-sm">BTech Environmental Engineering, IIT Bombay'27</p>
+                <p className="text-sm">BTech Engineering Physics, IIT Bombay'26</p>
               
-               <p className="text-sm">6302765711</p>
+               <p className="text-sm">9875408858</p>
                
-               <p className="text-sm">anujyadav@iitb.ac.in</p>
+               <p className="text-sm">aryantiwari4975@gmail.com</p>
               </div>
             </div>
           </div>

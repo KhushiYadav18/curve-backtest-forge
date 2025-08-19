@@ -14,9 +14,10 @@ const Login = () => {
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
+  console.log("Submitting login form with:", email, password); // Add this
 
   try {
-    const res = await fetch('http://localhost:5000/login', {
+    const res = await fetch('http://localhost:5001/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
@@ -107,6 +108,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             <Button
               type="submit"
               className="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white"
+              onClick={() => console.log('Button clicked')}
             >
               Sign In
             </Button>

@@ -1,0 +1,72 @@
+[
+  {
+    "metric": "Total Return",
+    "value": "293.25%",
+    "description": "Total return over the period"
+  },
+  {
+    "metric": "CAGR",
+    "value": "44.65%",
+    "description": "Compound Annual Growth Rate"
+  },
+  {
+    "metric": "Volatility",
+    "value": "20.28%",
+    "description": "Annualized standard deviation of returns"
+  },
+  {
+    "metric": "Sharpe Ratio",
+    "value": "1.92",
+    "description": "Risk-adjusted return (risk-free rate=0)"
+  },
+  {
+    "metric": "Sortino Ratio",
+    "value": "2.58",
+    "description": "Adjusted for downside volatility"
+  },
+  {
+    "metric": "Max Drawdown",
+    "value": "-34.05%",
+    "description": "Maximum peak-to-trough decline"
+  },
+  {
+    "metric": "Calmar Ratio",
+    "value": "1.31",
+    "description": "CAGR divided by max drawdown"
+  },
+  {
+    "metric": "Win Rate",
+    "value": "78.82%",
+    "description": "Percentage of profitable trades"
+  },
+  {
+    "metric": "Profit Factor",
+    "value": "6.86",
+    "description": "Gross profit divided by gross loss"
+  },
+  {
+    "metric": "Total Trades",
+    "value": "6045",
+    "description": "Number of completed trades"
+  },
+  {
+    "metric": "Skewness",
+    "value": "-1.26",
+    "description": "Measure of return distribution asymmetry"
+  },
+  {
+    "metric": "Kurtosis",
+    "value": "11.11",
+    "description": "Measure of tail risk in return distribution"
+  },
+  {
+    "metric": "VaR (95%)",
+    "value": "-1.62%",
+    "description": "Worst expected loss at 95% confidence"
+  },
+  {
+    "metric": "CVaR (95%)",
+    "value": "-2.76%",
+    "description": "Average loss beyond VaR at 95% confidence"
+  }
+]

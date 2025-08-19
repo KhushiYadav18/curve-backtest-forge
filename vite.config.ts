@@ -5,24 +5,24 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-   server: {
+  base: mode === "development" ? "/curve-backtest-forge/" : "/curve-backtest-forge/",
+  server: {
+    port: 5173,
     proxy: {
-      '/api': {
-        target: 'http://localhost:5000',
+      "/api": {
+        target: "http://localhost:5173/",
         changeOrigin: true,
-        rewrite: path => path.replace(/^\/api/, '')
+        rewrite: path => path.replace(/^\/api/, "")
       }
     }
   },
-  base: '/curve-backtest-forge/',
   plugins: [
     react(),
-    mode === 'development' &&
-    componentTagger(),
+    mode === "development" && componentTagger()
   ].filter(Boolean),
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-  },
+      "@": path.resolve(__dirname, "./src")
+    }
+  }
 }));
